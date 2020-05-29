@@ -7,27 +7,27 @@ import { appPath } from './app-path.const';
 const routes: Routes = [
   {
     path: appPath.home,
-    loadChildren: './home/home.module#HomeModule'
+    loadChildren: () => import('./home/home.module').then(m => m.HomeModule)
   },
   {
     path: appPath.products,
-    loadChildren: './product-section/product-section.module#ProductSectionModule'
+    loadChildren: () => import('./product-section/product-section.module').then(m => m.ProductSectionModule)
   },
   {
     path: appPath.login,
-    loadChildren: './login/login.module#LoginModule'
+    loadChildren: () => import('./login/login.module').then(m => m.LoginModule)
   },
   {
     path: appPath.cart,
-    loadChildren: './cart/cart.module#CartModule'
+    loadChildren: () => import('./cart/cart.module').then(m => m.CartModule)
   },
   {
     path: appPath.checkout,
-    loadChildren: './checkout/checkout.module#CheckoutModule'
+    loadChildren: () => import('./checkout/checkout.module').then(m => m.CheckoutModule)
   },
   {
     path: appPath.success,
-    loadChildren: './success/success.module#SuccessModule'
+    loadChildren: () => import('./success/success.module').then(m => m.SuccessModule)
   },
   {
     path: '**',

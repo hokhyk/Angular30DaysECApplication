@@ -1,11 +1,14 @@
+import { MapOperator } from './../../node_modules/@angular-devkit/schematics/node_modules/rxjs/src/internal/operators/map';
 import { Config } from './../../node_modules/codelyzer/angular/config.d';
 import { Component, NgZone, OnInit, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 
-import { Observable } from 'rxjs';
+import { Observable, pipe, switchMap, map, combineLatest, exhaustMap, startWith } from 'rxjs';
 
 // Constant
 import { appPath } from './app-path.const';
 import { ConfigService } from './config.service';
+import { ActivatedRoute } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -26,10 +29,18 @@ export class AppComponent implements OnInit {
     private configService: ConfigService,
     @Inject(CONFIG_TOKEN) private config: Config,
     private zone: NgZone,
-    private changeDetectorRef: ChangeDetectorRef
+    private changeDetectorRef: ChangeDetectorRef,
+    private route: ActivatedRoute, private httpClient: HttpClient,
     ) {
     console.log(this.configService.config);
   }
+
+  postData$: Observable<any>;
+  data$: Observable<any>;
+  products$ : Observable<any>;
+  filterChange$ : Observable<any>;
+  sortChange$ : Observable<any>;
+  pageChange$ : Observable<any>;
 
   ngOnInit() {
     this.zone.onUnstable.subscribe(() => { console.log('有事件發生了') });
@@ -45,6 +56,67 @@ export class AppComponent implements OnInit {
     });
 
     this.changeDetectorRef.markForCheck();
+
+    this.postData$ = this.route.params.pipe(
+      switchMap(params => this.httpClient
+        .get(`.../post/${params['id']}`).pipe(
+          map(post => ({ id: params['id'], post: post }))
+      )),
+      switchMap(post => this.httpClient
+        .get(`.../comments/${post.id}`).pipe(
+          map(comments => Object.assign(post, { comments: comments }))
+      ))
+    );
+
+    const posts$ = this.httpClient.get('.../posts');
+    const tags$ = this.httpClient.get('.../tags');
+
+    this.data$ = combineLatest(posts$, tags$).pipe(
+      map(([posts, tags]) => ({posts: posts, tags: tags}))
+    );
+
+    this.products$ = combineLatest(
+      this.filterChange$.pipe(startWith('')),
+      this.sortChange$.pipe(startWith({})),
+      this.pageChange$.pipe(startWith({}))
+    )
+    .pipe(
+      exhaustMap(([keyword, sort, page]) =>
+        this.httpClient
+          // .get(`.../products/?keyword=${keyword}&sort=${sort}&page=${page}`)
+          .post(`.../products`, { keyword: keyword, sort: sort, page: page}))
+      )
+    );
+
+    data$ = this.searchControl.valueChanges.pipe(
+      debounceTime(300), // 當 300 毫秒沒有新資料時，才進行搜尋
+      distinctUntilChanged(), // 當「內容真正有變更」時，才進行搜尋
+      filter(keyword => keyword.length >= 3), // 當關鍵字大於 3 個字時，才搜尋
+      switchMap(keyword => this.httpClient.get(`.../?q=${keyword}`))
+    );
+
+    this.httpClient.get(`.../posts`).pipe(
+      tap(data => {
+        if(data.length === 0) {
+          // 主動丟出錯誤
+          throwError('no data')
+        }
+      }),
+      catchError(error => {
+        console.log(error);
+        return of([]);
+      })
+    );
+
+    this.isLoading = true; // 進入讀取中狀態
+    this.httpClient.get(`.../posts`).pipe(
+      finalize(() => {
+        // 不管中間程式遇到任何錯誤，一定會進入 finalize 裡面
+      this.isLoading = false;
+      });
+)
+
+
   }
 
   var canvas = document.getElementById('canvas');
